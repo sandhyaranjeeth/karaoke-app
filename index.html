@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>Saturday Karaoke Setlist Generator</title>
+  <style>
+    :root {
+      --primary: #6366f1;
+      --primary-hover: #4f46e5;
+      --whatsapp: #25D366;
+      --bg: #0f172a;
+      --card: #1e293b;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --border: #334155;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 14px;
+      padding-bottom: 95px;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .container { max-width: 540px; margin: 0 auto; }
+    h1 { font-size: 1.35rem; margin: 4px 0; text-align: center; }
+    p.subtitle {
+      color: var(--muted);
+      text-align: center;
+      font-size: 0.88rem;
+      margin: 0 0 16px 0;
+    }
+    .pin-box {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px 18px;
+      text-align: center;
+      margin-top: 30px;
+    }
+    .pin-box input {
+      text-align: center;
+      letter-spacing: 6px;
+      font-size: 1.4rem;
+      font-weight: 700;
+      max-width: 220px;
+      margin: 12px auto;
+      display: block;
+    }
+    .reset-pin-link {
+      display: block;
+      text-align: right;
+      font-size: 0.78rem;
+      color: var(--muted);
+      text-decoration: underline;
+      cursor: pointer;
+      margin-bottom: 8px;
+    }
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      background: var(--card);
+      padding: 16px;
+      border-radius: 14px;
+      margin-bottom: 16px;
+      border: 1px solid var(--border);
+    }
+    @media (max-width: 420px) {
+      .form-grid { grid-template-columns: 1fr; }
+      .full-width { grid-column: span 1 !important; }
+    }
+    .full-width { grid-column: span 2; }
+    label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--muted);
+      margin-bottom: 5px;
+    }
+    input, select {
+      width: 100%;
+      padding: 11px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: #0f172a;
+      color: var(--text);
+      font-size: 16px;
+      outline: none;
+    }
+    input:focus, select:focus { border-color: var(--primary); }
+    button.generate-btn {
+      width: 100%;
+      padding: 13px;
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 4px;
+    }
+    button.generate-btn:active { background: var(--primary-hover); }
+    button.generate-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+    button.more-btn {
+      width: 100%;
+      padding: 13px;
+      background: transparent;
+      color: #a5b4fc;
+      border: 1.5px dashed #6366f1;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 8px;
+      margin-bottom: 16px;
+    }
+    button.more-btn:disabled { opacity: 0.5; }
+    .song-card {
+      background: var(--card);
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      border: 1.5px solid var(--border);
+      transition: border-color 0.15s ease;
+    }
+    .song-card.selected {
+      border-color: var(--whatsapp);
+      background: #172536;
+    }
+    .song-card input[type="checkbox"] {
+      width: 22px;
+      height: 22px;
+      margin-top: 2px;
+      accent-color: var(--whatsapp);
+      flex-shrink: 0;
+      cursor: pointer;
+    }
+    .song-info { flex: 1; min-width: 0; }
+    .song-title {
+      font-weight: 600;
+      font-size: 1rem;
+      margin-bottom: 4px;
+      word-wrap: break-word;
+    }
+    .song-meta {
+      font-size: 0.84rem;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+    .yt-link {
+      display: inline-block;
+      margin-top: 8px;
+      padding: 5px 10px;
+      background: rgba(56, 189, 248, 0.12);
+      border-radius: 6px;
+      font-size: 0.82rem;
+      font-weight: 500;
+      color: #38bdf8;
+      text-decoration: none;
+    }
+    .floating-bar {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      background: rgba(30, 41, 59, 0.96);
+      backdrop-filter: blur(8px);
+      padding: 12px 14px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: center;
+      z-index: 20;
+    }
+    .wa-btn {
+      width: 100%;
+      max-width: 540px;
+      padding: 13px;
+      background: var(--whatsapp);
+      color: #052e16;
+      border: none;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .error {
+      color: #f87171;
+      text-align: center;
+      font-size: 0.9rem;
+      margin: 12px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🎤 Saturday Karaoke Picker</h1>
+
+    <div id="pinScreen" class="pin-box" style="display: none;">
+      <p style="margin-top: 0; font-weight: 600;">🔒 Enter Group PIN</p>
+      <p class="subtitle" style="margin-bottom: 10px;">Ask the WhatsApp group admin for the access PIN</p>
+      <input type="password" id="pinInput" inputmode="numeric" placeholder="••••" />
+      <button class="generate-btn" id="unlockBtn" style="max-width: 220px;">Unlock</button>
+    </div>
+
+    <div id="appScreen" style="display: none;">
+      <p class="subtitle">Filter songs, tick your picks, and share to WhatsApp</p>
+      <span class="reset-pin-link" id="resetPinBtn">Change PIN</span>
+
+      <div class="form-grid">
+        <div>
+          <label for="language">Language</label>
+          <select id="language">
+            <option value="Kannada">Kannada</option>
+            <option value="Hindi">Hindi</option>
+            <option value="Kannada and Hindi">Both (Kannada & Hindi)</option>
+          </select>
+        </div>
+        <div>
+          <label for="type">Solo / Duet</label>
+          <select id="type">
+            <option value="Any">Any (Solo or Duet)</option>
+            <option value="Solo">Solo Only</option>
+            <option value="Duet">Duet Only</option>
+          </select>
+        </div>
+        <div>
+          <label for="singer">Singer(s)</label>
+          <input type="text" id="singer" placeholder="e.g., SPB, Sonu Nigam, Shreya" />
+        </div>
+        <div>
+          <label for="director">Music Director</label>
+          <input type="text" id="director" placeholder="e.g., Hamsalekha, R.D. Burman" />
+        </div>
+        <div>
+          <label for="actor">Actor / Actress</label>
+          <input type="text" id="actor" placeholder="e.g., Dr. Rajkumar, SRK" />
+        </div>
+        <div>
+          <label for="mood">Era / Mood</label>
+          <input type="text" id="mood" placeholder="e.g., 90s Melody, Party, Retro" />
+        </div>
+        <div class="full-width">
+          <button class="generate-btn" id="genBtn">Generate Song Ideas</button>
+        </div>
+      </div>
+
+      <div id="errorMsg" class="error"></div>
+      <div id="results"></div>
+
+      <button class="more-btn" id="moreBtn" style="display: none;">
+        🔄 Regenerate / Load More Songs
+      </button>
+    </div>
+  </div>
+
+  <div class="floating-bar" id="shareBar" style="display: none;">
+    <button class="wa-btn" id="waShareBtn">
+      Share Selected to WhatsApp (<span id="count">0</span>)
+    </button>
+  </div>
+
+  <script>
+    var PIN_STORAGE_KEY = 'karaoke_group_pin';
+    var allSongs = [];
+    var selectedIndices = new Set();
+
+    function initApp() {
+      var savedPin = localStorage.getItem(PIN_STORAGE_KEY);
+      document.getElementById('pinScreen').style.display = savedPin ? 'none' : 'block';
+      document.getElementById('appScreen').style.display = savedPin ? 'block' : 'none';
+    }
+
+    function savePin() {
+      var val = document.getElementById('pinInput').value.trim();
+      if (!val) {
+        alert('Please enter the group PIN.');
+        return;
+      }
+      localStorage.setItem(PIN_STORAGE_KEY, val);
+      document.getElementById('pinInput').value = '';
+      initApp();
+    }
+
+    function clearPin() {
+      localStorage.removeItem(PIN_STORAGE_KEY);
+      document.getElementById('results').innerHTML = '';
+      document.getElementById('shareBar').style.display = 'none';
+      document.getElementById('moreBtn').style.display = 'none';
+      document.getElementById('errorMsg').textContent = '';
+      initApp();
+    }
+
+    async function fetchSongs(isAppend) {
+      var genBtn = document.getElementById('genBtn');
+      var moreBtn = document.getElementById('moreBtn');
+      var errorDiv = document.getElementById('errorMsg');
+      var savedPin = localStorage.getItem(PIN_STORAGE_KEY) || '';
+
+      genBtn.disabled = true;
+      moreBtn.disabled = true;
+      errorDiv.textContent = '';
+
+      if (isAppend) {
+        moreBtn.textContent = 'Finding more songs...';
+      } else {
+        genBtn.textContent = 'Finding great karaoke tracks...';
+        allSongs = [];
+        selectedIndices.clear();
+        document.getElementById('results').innerHTML = '';
+        document.getElementById('shareBar').style.display = 'none';
+        moreBtn.style.display = 'none';
+      }
+
+      var payload = {
+        pin: savedPin,
+        language: document.getElementById('language').value,
+        type: document.getElementById('type').value,
+        singer: document.getElementById('singer').value.trim(),
+        director: document.getElementById('director').value.trim(),
+        actor: document.getElementById('actor').value.trim(),
+        mood: document.getElementById('mood').value.trim(),
+        exclude: isAppend ? allSongs.map(function(s) { return s.title; }) : []
+      };
+
+      try {
+        var res = await fetch('/api/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        var data = await res.json();
+
+        if (res.status === 401) {
+          alert('Incorrect Group PIN. Please try again.');
+          clearPin();
+          return;
+        }
+
+        if (!res.ok) {
+          throw new Error(data.error || 'Failed to fetch songs');
+        }
+
+        var startIndex = allSongs.length;
+        allSongs = allSongs.concat(data.songs || []);
+        renderSongs(data.songs || [], startIndex);
+
+        document.getElementById('shareBar').style.display = 'flex';
+        moreBtn.style.display = 'block';
+        updateCount();
+      } catch (err) {
+        errorDiv.textContent = 'Error: ' + err.message;
+      } finally {
+        genBtn.disabled = false;
+        genBtn.textContent = 'Generate Song Ideas';
+        moreBtn.disabled = false;
+        moreBtn.textContent = '🔄 Regenerate / Load More Songs';
+      }
+    }
+
+    function renderSongs(songs, startIndex) {
+      var resultsDiv = document.getElementById('results');
+
+      songs.forEach(function(song, i) {
+        var index = startIndex + i;
+        var ytQuery = encodeURIComponent(song.title + ' ' + song.singers + ' karaoke');
+        var ytUrl = 'https://www.youtube.com/results?search_query=' + ytQuery;
+
+        var card = document.createElement('div');
+        card.className = 'song-card';
+        card.id = 'card-' + index;
+
+        var checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.id = 'chk-' + index;
+        checkbox.addEventListener('change', function() {
+          toggleSong(index);
+        });
+
+        var infoDiv = document.createElement('div');
+        infoDiv.className = 'song-info';
+
+        var titleDiv = document.createElement('div');
+        titleDiv.className = 'song-title';
+        titleDiv.textContent = song.title + ' (' + song.type + ')';
+
+        var metaDiv = document.createElement('div');
+        metaDiv.className = 'song-meta';
+        metaDiv.textContent = '🎬 ' + song.movie_or_album + ' • 🎤 ' + song.singers + ' | 🎼 ' + song.director + ' • 🎭 ' + song.actor;
+
+        var ytLink = document.createElement('a');
+        ytLink.className = 'yt-link';
+        ytLink.href = ytUrl;
+        ytLink.target = '_blank';
+        ytLink.rel = 'noopener';
+        ytLink.textContent = '▶ Search Karaoke on YouTube';
+
+        infoDiv.appendChild(titleDiv);
+        infoDiv.appendChild(metaDiv);
+        infoDiv.appendChild(ytLink);
+
+        card.appendChild(checkbox);
+        card.appendChild(infoDiv);
+        resultsDiv.appendChild(card);
+      });
+    }
+
+    function toggleSong(index) {
+      var chk = document.getElementById('chk-' + index);
+      var card = document.getElementById('card-' + index);
+      if (chk.checked) {
+        selectedIndices.add(index);
+        card.classList.add('selected');
+      } else {
+        selectedIndices.delete(index);
+        card.classList.remove('selected');
+      }
+      updateCount();
+    }
+
+    function updateCount() {
+      document.getElementById('count').textContent = selectedIndices.size;
+    }
+
+    function shareToWhatsApp() {
+      if (selectedIndices.size === 0) {
+        alert('Please tick at least one song to share!');
+        return;
+      }
+
+      var sortedIndices = Array.from(selectedIndices).sort(function(a, b) { return a - b; });
+      var message = '🎤 *Saturday Karaoke Picks* 🎶\n\n';
+
+      sortedIndices.forEach(function(idx, i) {
+        var s = allSongs.at(idx);
+        message += (i + 1) + '. *' + s.title + '* (' + s.type + ')\n';
+        message += '   _Singer:_ ' + s.singers + ' | _Movie:_ ' + s.movie_or_album + '\n\n';
+      });
+
+      var waUrl = 'https://wa.me/?text=' + encodeURIComponent(message);
+      window.open(waUrl, '_blank');
+    }
+
+    document.getElementById('unlockBtn').addEventListener('click', savePin);
+    document.getElementById('pinInput').addEventListener('keydown', function(event) {
+      if (event.key === 'Enter') savePin();
+    });
+    document.getElementById('resetPinBtn').addEventListener('click', clearPin);
+    document.getElementById('genBtn').addEventListener('click', function() { fetchSongs(false); });
+    document.getElementById('moreBtn').addEventListener('click', function() { fetchSongs(true); });
+    document.getElementById('waShareBtn').addEventListener('click', shareToWhatsApp);
+
+    initApp();
+  </script>
+</body>
+</html>
