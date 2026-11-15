@@ -11,9 +11,9 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Server missing GEMINI_API_KEY' });
   }
 
-  if (groupPin && pin !== groupPin) {
-    return res.status(401).json({ error: 'Invalid Group PIN. Check with the admin.' });
-  }
+  // if (groupPin && pin !== groupPin) {
+  //   return res.status(401).json({ error: 'Invalid Group PIN. Check with the admin.' });
+  // }
 
   const excludeRule =
     exclude && exclude.length > 0
