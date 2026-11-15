@@ -28,22 +28,42 @@ export default async function handler(req, res) {
     '- Music Director: ' + (director || 'Any') + '\n' +
     '- Actor/Actress: ' + (actor || 'Any') + '\n' +
     '- Era / Vibe: ' + (mood || 'Any') +
-    excludeRule +
-    '\n\nReturn ONLY a valid JSON array of objects with no markdown formatting.\n' +
-    'Each object must use these exact keys:\n' +
-    '"title", "movie_or_album", "singers", "type" ("Solo" or "Duet"), "director", "actor"';
+    excludeRule;
 
   try {
     const response = await fetch(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + apiKey,
+      'https://googleapis.com',
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': apiKey,
+          'Api-Revision': '2026-05-20'
+        },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            responseMimeType: 'application/json',
+          model: 'gemini-3.8-flash',
+          input: prompt,
+          generation_config: {
             temperature: 0.8
+          },
+          response_format: {
+            type: 'text',
+            mime_type: 'application/json',
+            schema: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  title: { type: 'string' },
+                  movie_or_album: { type: 'string' },
+                  singers: { type: 'string' },
+                  type: { type: 'string', enum: ['Solo', 'Duet'] },
+                  director: { type: 'string' },
+                  actor: { type: 'string' }
+                },
+                required: ['title', 'movie_or_album', 'singers', 'type', 'director', 'actor']
+              }
+            }
           }
         })
       }
@@ -54,11 +74,11 @@ export default async function handler(req, res) {
       throw new Error((data.error && data.error.message) || 'Gemini API error');
     }
 
-    const firstCandidate = data.candidates ? data.candidates[0] : null;
-    const firstPart = firstCandidate && firstCandidate.content && firstCandidate.content.parts
-      ? firstCandidate.content.parts[0]
+    const modelStep = data.steps ? data.steps.find((step) => step.type === 'model_output') : null;
+    const textBlock = modelStep && modelStep.content
+      ? modelStep.content.find((block) => block.type === 'text')
       : null;
-    const rawText = (firstPart && firstPart.text) || '[]';
+    const rawText = (textBlock && textBlock.text) || '[]';
     const songs = JSON.parse(rawText);
 
     return res.status(200).json({ songs });
