@@ -38,7 +38,7 @@ Each object must use these exact keys:
 
   try {
     const interaction = await ai.interactions.create({
-      model: 'gemini-3.8-flash',
+      model: process.env.GEMINI_MODEL,
       input: prompt
     });
 
