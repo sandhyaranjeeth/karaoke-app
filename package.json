@@ -1,0 +1,11 @@
+{
+  "name": "saturday-karaoke-picker",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@google/genai": "^2.32.0"
+  }
+}

@@ -204,17 +204,17 @@
     <div id="pinScreen" class="pin-box" style="display: none;">
       <p style="margin-top: 0; font-weight: 600;">🔒 Enter Group PIN</p>
       <p class="subtitle" style="margin-bottom: 10px;">Ask the WhatsApp group admin for the access PIN</p>
-      <input type="password" id="pinInput" inputmode="numeric" placeholder="••••" />
-      <button class="generate-btn" id="unlockBtn" style="max-width: 220px;">Unlock</button>
+      <input type="password" id="pinInput" inputmode="numeric" placeholder="••••" onkeydown="if(event.key==='Enter') savePin()" />
+      <button class="generate-btn" style="max-width: 220px;" onclick="savePin()">Unlock</button>
     </div>
 
     <div id="appScreen" style="display: none;">
       <p class="subtitle">Filter songs, tick your picks, and share to WhatsApp</p>
-      <span class="reset-pin-link" id="resetPinBtn">Change PIN</span>
+      <span class="reset-pin-link" onclick="clearPin()">Change PIN</span>
 
       <div class="form-grid">
         <div>
-          <label for="language">Language</label>
+          <label>Language</label>
           <select id="language">
             <option value="Kannada">Kannada</option>
             <option value="Hindi">Hindi</option>
@@ -222,7 +222,7 @@
           </select>
         </div>
         <div>
-          <label for="type">Solo / Duet</label>
+          <label>Solo / Duet</label>
           <select id="type">
             <option value="Any">Any (Solo or Duet)</option>
             <option value="Solo">Solo Only</option>
@@ -230,54 +230,56 @@
           </select>
         </div>
         <div>
-          <label for="singer">Singer(s)</label>
+          <label>Singer(s)</label>
           <input type="text" id="singer" placeholder="e.g., SPB, Sonu Nigam, Shreya" />
         </div>
         <div>
-          <label for="director">Music Director</label>
+          <label>Music Director</label>
           <input type="text" id="director" placeholder="e.g., Hamsalekha, R.D. Burman" />
         </div>
         <div>
-          <label for="actor">Actor / Actress</label>
+          <label>Actor / Actress</label>
           <input type="text" id="actor" placeholder="e.g., Dr. Rajkumar, SRK" />
         </div>
         <div>
-          <label for="mood">Era / Mood</label>
+          <label>Era / Mood</label>
           <input type="text" id="mood" placeholder="e.g., 90s Melody, Party, Retro" />
         </div>
         <div class="full-width">
-          <button class="generate-btn" id="genBtn">Generate Song Ideas</button>
+          <button class="generate-btn" id="genBtn" onclick="fetchSongs(false)">
+            Generate Song Ideas
+          </button>
         </div>
       </div>
 
       <div id="errorMsg" class="error"></div>
       <div id="results"></div>
 
-      <button class="more-btn" id="moreBtn" style="display: none;">
+      <button class="more-btn" id="moreBtn" style="display: none;" onclick="fetchSongs(true)">
         🔄 Regenerate / Load More Songs
       </button>
     </div>
   </div>
 
   <div class="floating-bar" id="shareBar" style="display: none;">
-    <button class="wa-btn" id="waShareBtn">
+    <button class="wa-btn" onclick="shareToWhatsApp()">
       Share Selected to WhatsApp (<span id="count">0</span>)
     </button>
   </div>
 
   <script>
-    var PIN_STORAGE_KEY = 'karaoke_group_pin';
-    var allSongs = [];
-    var selectedIndices = new Set();
+    const PIN_STORAGE_KEY = 'karaoke_group_pin';
+    let allSongs = [];
+    let selectedIndices = new Set();
 
     function initApp() {
-      var savedPin = localStorage.getItem(PIN_STORAGE_KEY);
+      const savedPin = localStorage.getItem(PIN_STORAGE_KEY);
       document.getElementById('pinScreen').style.display = savedPin ? 'none' : 'block';
       document.getElementById('appScreen').style.display = savedPin ? 'block' : 'none';
     }
 
     function savePin() {
-      var val = document.getElementById('pinInput').value.trim();
+      const val = document.getElementById('pinInput').value.trim();
       if (!val) {
         alert('Please enter the group PIN.');
         return;
@@ -297,10 +299,10 @@
     }
 
     async function fetchSongs(isAppend) {
-      var genBtn = document.getElementById('genBtn');
-      var moreBtn = document.getElementById('moreBtn');
-      var errorDiv = document.getElementById('errorMsg');
-      var savedPin = localStorage.getItem(PIN_STORAGE_KEY) || '';
+      const genBtn = document.getElementById('genBtn');
+      const moreBtn = document.getElementById('moreBtn');
+      const errorDiv = document.getElementById('errorMsg');
+      const savedPin = localStorage.getItem(PIN_STORAGE_KEY) || '';
 
       genBtn.disabled = true;
       moreBtn.disabled = true;
@@ -317,7 +319,7 @@
         moreBtn.style.display = 'none';
       }
 
-      var payload = {
+      const payload = {
         pin: savedPin,
         language: document.getElementById('language').value,
         type: document.getElementById('type').value,
@@ -325,16 +327,16 @@
         director: document.getElementById('director').value.trim(),
         actor: document.getElementById('actor').value.trim(),
         mood: document.getElementById('mood').value.trim(),
-        exclude: isAppend ? allSongs.map(function(s) { return s.title; }) : []
+        exclude: isAppend ? allSongs.map(s => s.title) : []
       };
 
       try {
-        var res = await fetch('/api/generate', {
+        const res = await fetch('/api/generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
-        var data = await res.json();
+        const data = await res.json();
 
         if (res.status === 401) {
           alert('Incorrect Group PIN. Please try again.');
@@ -342,13 +344,11 @@
           return;
         }
 
-        if (!res.ok) {
-          throw new Error(data.error || 'Failed to fetch songs');
-        }
+        if (!res.ok) throw new Error(data.error || 'Failed to fetch songs');
 
-        var startIndex = allSongs.length;
-        allSongs = allSongs.concat(data.songs || []);
-        renderSongs(data.songs || [], startIndex);
+        const startIndex = allSongs.length;
+        allSongs = allSongs.concat(data.songs);
+        renderSongs(data.songs, startIndex);
 
         document.getElementById('shareBar').style.display = 'flex';
         moreBtn.style.display = 'block';
@@ -364,55 +364,34 @@
     }
 
     function renderSongs(songs, startIndex) {
-      var resultsDiv = document.getElementById('results');
+      const resultsDiv = document.getElementById('results');
 
-      songs.forEach(function(song, i) {
-        var index = startIndex + i;
-        var ytQuery = encodeURIComponent(song.title + ' ' + song.singers + ' karaoke');
-        var ytUrl = 'https://www.youtube.com/results?search_query=' + ytQuery;
+      songs.forEach((song, i) => {
+        const index = startIndex + i;
+        const ytQuery = encodeURIComponent(`${song.title} ${song.singers} karaoke`);
+        const ytUrl = `https://www.youtube.com/results?search_query=${ytQuery}`;
 
-        var card = document.createElement('div');
+        const card = document.createElement('div');
         card.className = 'song-card';
-        card.id = 'card-' + index;
-
-        var checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.id = 'chk-' + index;
-        checkbox.addEventListener('change', function() {
-          toggleSong(index);
-        });
-
-        var infoDiv = document.createElement('div');
-        infoDiv.className = 'song-info';
-
-        var titleDiv = document.createElement('div');
-        titleDiv.className = 'song-title';
-        titleDiv.textContent = song.title + ' (' + song.type + ')';
-
-        var metaDiv = document.createElement('div');
-        metaDiv.className = 'song-meta';
-        metaDiv.textContent = '🎬 ' + song.movie_or_album + ' • 🎤 ' + song.singers + ' | 🎼 ' + song.director + ' • 🎭 ' + song.actor;
-
-        var ytLink = document.createElement('a');
-        ytLink.className = 'yt-link';
-        ytLink.href = ytUrl;
-        ytLink.target = '_blank';
-        ytLink.rel = 'noopener';
-        ytLink.textContent = '▶ Search Karaoke on YouTube';
-
-        infoDiv.appendChild(titleDiv);
-        infoDiv.appendChild(metaDiv);
-        infoDiv.appendChild(ytLink);
-
-        card.appendChild(checkbox);
-        card.appendChild(infoDiv);
+        card.id = `card-${index}`;
+        card.innerHTML = `
+          <input type="checkbox" id="chk-${index}" onchange="toggleSong(${index})" />
+          <div class="song-info">
+            <div class="song-title">${song.title} (${song.type})</div>
+            <div class="song-meta">
+              🎬 ${song.movie_or_album} • 🎤 ${song.singers}<br/>
+              🎼 ${song.director} • 🎭 ${song.actor}
+            </div>
+            <a class="yt-link" href="${ytUrl}" target="_blank" rel="noopener">▶ Search Karaoke on YouTube</a>
+          </div>
+        `;
         resultsDiv.appendChild(card);
       });
     }
 
     function toggleSong(index) {
-      var chk = document.getElementById('chk-' + index);
-      var card = document.getElementById('card-' + index);
+      const chk = document.getElementById(`chk-${index}`);
+      const card = document.getElementById(`card-${index}`);
       if (chk.checked) {
         selectedIndices.add(index);
         card.classList.add('selected');
@@ -433,27 +412,18 @@
         return;
       }
 
-      var sortedIndices = Array.from(selectedIndices).sort(function(a, b) { return a - b; });
-      var message = '🎤 *Saturday Karaoke Picks* 🎶\n\n';
+      const sortedIndices = Array.from(selectedIndices).sort((a, b) => a - b);
+      let message = `🎤 *Saturday Karaoke Picks* 🎶\n\n`;
 
-      sortedIndices.forEach(function(idx, i) {
-        var s = allSongs.at(idx);
-        message += (i + 1) + '. *' + s.title + '* (' + s.type + ')\n';
-        message += '   _Singer:_ ' + s.singers + ' | _Movie:_ ' + s.movie_or_album + '\n\n';
+      sortedIndices.forEach((idx, i) => {
+        const s = allSongs[idx];
+        message += `${i + 1}. *${s.title}* (${s.type})\n`;
+        message += `   _Singer:_ ${s.singers} | _Movie:_ ${s.movie_or_album}\n\n`;
       });
 
-      var waUrl = 'https://wa.me/?text=' + encodeURIComponent(message);
+      const waUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
       window.open(waUrl, '_blank');
     }
-
-    document.getElementById('unlockBtn').addEventListener('click', savePin);
-    document.getElementById('pinInput').addEventListener('keydown', function(event) {
-      if (event.key === 'Enter') savePin();
-    });
-    document.getElementById('resetPinBtn').addEventListener('click', clearPin);
-    document.getElementById('genBtn').addEventListener('click', function() { fetchSongs(false); });
-    document.getElementById('moreBtn').addEventListener('click', function() { fetchSongs(true); });
-    document.getElementById('waShareBtn').addEventListener('click', shareToWhatsApp);
 
     initApp();
   </script>

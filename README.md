@@ -1,15 +1,14 @@
-# Saturday Karaoke Picker
+# Saturday Karaoke Setlist Generator
 
-A zero-database, AI-powered web app for generating and sharing Saturday karaoke song lists on WhatsApp.
+## Local Setup
+1. Run `npm install` to install `@google/genai`.
+2. Copy `.env.example` to `.env` and set your `GEMINI_API_KEY` and `GROUP_PIN`.
+3. Run `node server.js` and open `http://localhost:3000`.
 
-## Folder Structure
-- `index.html`: Mobile-responsive frontend with PIN screen, Kannada/Hindi language selector, filters, regenerate button, YouTube karaoke search links, and WhatsApp share button.
-- `api/generate.js`: Vercel serverless backend that validates `GROUP_PIN` and fetches song recommendations using `GEMINI_API_KEY`.
-
-## Deployment Steps (Vercel)
-1. Upload the contents of `karaoke-app/` (`index.html` and the `api/` folder) to a GitHub repository.
-2. Import the repository into [Vercel](https://vercel.com/).
-3. Under **Settings > Environment Variables**, add:
-   - `GEMINI_API_KEY`: Your free API key from Google AI Studio.
-   - `GROUP_PIN`: Your chosen numeric PIN for group members (e.g., `1234`).
-4. Deploy (or Redeploy) the project and share your live Vercel URL in your WhatsApp group.
+## GitHub & Vercel Deployment
+1. Push this folder to a GitHub repository (`.gitignore` prevents `.env` from being uploaded).
+2. Import the repository into Vercel.
+3. In Vercel Project **Settings > Environment Variables**, add:
+   - `GEMINI_API_KEY`: Your Google AI Studio API key
+   - `GROUP_PIN`: Your Saturday group PIN
+4. Deploy and share your Vercel URL in WhatsApp.
