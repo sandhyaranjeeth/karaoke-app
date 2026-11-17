@@ -5,17 +5,12 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { pin, language, type, singer, director, actor, mood, exclude } = req.body;
+  const { language, type, singer, director, actor, mood, exclude } = req.body;
   const apiKey = process.env.GEMINI_API_KEY;
-  // const groupPin = process.env.GROUP_PIN;
 
   if (!apiKey) {
     return res.status(500).json({ error: 'Server missing GEMINI_API_KEY' });
   }
-
-  // if (groupPin && pin !== groupPin) {
-  //   return res.status(401).json({ error: 'Invalid Group PIN. Check with the admin.' });
-  // }
 
   const ai = new GoogleGenAI({ apiKey });
 
@@ -34,7 +29,9 @@ export default async function handler(req, res) {
 
 Return ONLY a valid JSON array of objects with no markdown formatting or backticks.
 Each object must use these exact keys:
-"title", "movie_or_album", "singers", "type" ("Solo" or "Duet"), "director", "actor"`;
+"title", "movie_or_album", "singers", "type" ("Solo" or "Duet"), "director", "actor"
+
+ALWAYS double check the response for factual errors. correct them and suggest correct list`;
 
   try {
     const interaction = await ai.interactions.create({

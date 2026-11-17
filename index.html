@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-  <title>Saturday Karaoke Setlist Generator</title>
+  <title>Friday Karaoke Setlist Generator</title>
   <style>
     :root {
       --primary: #6366f1;
@@ -33,32 +33,7 @@
       font-size: 0.88rem;
       margin: 0 0 16px 0;
     }
-    .pin-box {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 24px 18px;
-      text-align: center;
-      margin-top: 30px;
-    }
-    .pin-box input {
-      text-align: center;
-      letter-spacing: 6px;
-      font-size: 1.4rem;
-      font-weight: 700;
-      max-width: 220px;
-      margin: 12px auto;
-      display: block;
-    }
-    .reset-pin-link {
-      display: block;
-      text-align: right;
-      font-size: 0.78rem;
-      color: var(--muted);
-      text-decoration: underline;
-      cursor: pointer;
-      margin-bottom: 8px;
-    }
+    
     .form-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -177,9 +152,26 @@
       justify-content: center;
       z-index: 20;
     }
-    .wa-btn {
+    .floating-bar-inner {
       width: 100%;
       max-width: 540px;
+      display: flex;
+      gap: 10px;
+    }
+    .select-all-btn {
+      padding: 13px 16px;
+      background: #334155;
+      color: var(--text);
+      border: 1px solid #475569;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .select-all-btn:active { background: #475569; }
+    .wa-btn {
+      flex: 1;
       padding: 13px;
       background: var(--whatsapp);
       color: #052e16;
@@ -199,18 +191,10 @@
 </head>
 <body>
   <div class="container">
-    <h1>🎤 Saturday Karaoke Picker</h1>
-
-    <div id="pinScreen" class="pin-box" style="display: none;">
-      <p style="margin-top: 0; font-weight: 600;">🔒 Enter Group PIN</p>
-      <p class="subtitle" style="margin-bottom: 10px;">Ask the WhatsApp group admin for the access PIN</p>
-      <input type="password" id="pinInput" inputmode="numeric" placeholder="••••" onkeydown="if(event.key==='Enter') savePin()" />
-      <button class="generate-btn" style="max-width: 220px;" onclick="savePin()">Unlock</button>
-    </div>
+    <h1>🎤 Friday Karaoke Picker</h1>
 
     <div id="appScreen" style="display: none;">
       <p class="subtitle">Filter songs, tick your picks, and share to WhatsApp</p>
-      <span class="reset-pin-link" onclick="clearPin()">Change PIN</span>
 
       <div class="form-grid">
         <div>
@@ -262,47 +246,28 @@
   </div>
 
   <div class="floating-bar" id="shareBar" style="display: none;">
-    <button class="wa-btn" onclick="shareToWhatsApp()">
-      Share Selected to WhatsApp (<span id="count">0</span>)
-    </button>
+    <div class="floating-bar-inner">
+      <button type="button" class="select-all-btn" id="selectAllBtn" onclick="toggleSelectAll()">
+        Select All
+      </button>
+      <button type="button" class="wa-btn" onclick="shareToWhatsApp()">
+        Share Selected to WhatsApp (<span id="count">0</span>)
+      </button>
+    </div>
   </div>
 
   <script>
-    const PIN_STORAGE_KEY = 'karaoke_group_pin';
     let allSongs = [];
     let selectedIndices = new Set();
 
     function initApp() {
-      const savedPin = localStorage.getItem(PIN_STORAGE_KEY);
-      document.getElementById('pinScreen').style.display = savedPin ? 'none' : 'block';
-      document.getElementById('appScreen').style.display = savedPin ? 'block' : 'none';
-    }
-
-    function savePin() {
-      const val = document.getElementById('pinInput').value.trim();
-      if (!val) {
-        alert('Please enter the group PIN.');
-        return;
-      }
-      localStorage.setItem(PIN_STORAGE_KEY, val);
-      document.getElementById('pinInput').value = '';
-      initApp();
-    }
-
-    function clearPin() {
-      localStorage.removeItem(PIN_STORAGE_KEY);
-      document.getElementById('results').innerHTML = '';
-      document.getElementById('shareBar').style.display = 'none';
-      document.getElementById('moreBtn').style.display = 'none';
-      document.getElementById('errorMsg').textContent = '';
-      initApp();
+      document.getElementById('appScreen').style.display = 'block';
     }
 
     async function fetchSongs(isAppend) {
       const genBtn = document.getElementById('genBtn');
       const moreBtn = document.getElementById('moreBtn');
       const errorDiv = document.getElementById('errorMsg');
-      const savedPin = localStorage.getItem(PIN_STORAGE_KEY) || '';
 
       genBtn.disabled = true;
       moreBtn.disabled = true;
@@ -320,7 +285,6 @@
       }
 
       const payload = {
-        pin: savedPin,
         language: document.getElementById('language').value,
         type: document.getElementById('type').value,
         singer: document.getElementById('singer').value.trim(),
@@ -336,13 +300,8 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
-        const data = await res.json();
 
-        if (res.status === 401) {
-          alert('Incorrect Group PIN. Please try again.');
-          clearPin();
-          return;
-        }
+        const data = await res.json();
 
         if (!res.ok) throw new Error(data.error || 'Failed to fetch songs');
 
@@ -402,8 +361,35 @@
       updateCount();
     }
 
+    function toggleSelectAll() {
+      const shouldSelectAll = selectedIndices.size < allSongs.length;
+
+      allSongs.forEach((_, index) => {
+        const chk = document.getElementById(`chk-${index}`);
+        const card = document.getElementById(`card-${index}`);
+        if (!chk || !card) return;
+
+        chk.checked = shouldSelectAll;
+        if (shouldSelectAll) {
+          selectedIndices.add(index);
+          card.classList.add('selected');
+        } else {
+          selectedIndices.delete(index);
+          card.classList.remove('selected');
+        }
+      });
+
+      updateCount();
+    }
+
     function updateCount() {
       document.getElementById('count').textContent = selectedIndices.size;
+      const selectAllBtn = document.getElementById('selectAllBtn');
+      if (allSongs.length > 0 && selectedIndices.size === allSongs.length) {
+        selectAllBtn.textContent = 'Deselect All';
+      } else {
+        selectAllBtn.textContent = 'Select All';
+      }
     }
 
     function shareToWhatsApp() {
@@ -413,12 +399,17 @@
       }
 
       const sortedIndices = Array.from(selectedIndices).sort((a, b) => a - b);
-      let message = `🎤 *Saturday Karaoke Picks* 🎶\n\n`;
+      let message = `🎤 *Friday Karaoke Picks* 🎶
+
+`;
 
       sortedIndices.forEach((idx, i) => {
         const s = allSongs[idx];
-        message += `${i + 1}. *${s.title}* (${s.type})\n`;
-        message += `   _Singer:_ ${s.singers} | _Movie:_ ${s.movie_or_album}\n\n`;
+        message += `${i + 1}. *${s.title}* (${s.type})
+`;
+        message += `   _Singer:_ ${s.singers} | _Movie:_ ${s.movie_or_album}
+
+`;
       });
 
       const waUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
