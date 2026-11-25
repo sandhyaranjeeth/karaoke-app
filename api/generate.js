@@ -1,6 +1,10 @@
 import { GoogleGenAI, Type } from '@google/genai';
 
+// Optional: raise the function timeout if your plan allows it (Vercel)
+export const config = { maxDuration: 30 };
+
 const isSet = (v) => v && String(v).trim() && !/^any\b/i.test(String(v).trim());
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const SYSTEM_INSTRUCTION = `You are an expert on Indian film music (Kannada, Hindi, and other industries) helping people pick karaoke songs. Accuracy matters more than quantity: a wrong movie, singer, or composer credit is worse than a missing field.`;
 
@@ -20,6 +24,38 @@ const SONG_SCHEMA = {
     required: ['title', 'movie_or_album', 'singers', 'type', 'confidence'],
   },
 };
+
+const isRetryable = (err) => {
+  const msg = String(err?.message || '').toLowerCase();
+  const status = err?.status || err?.code;
+  return (
+    [429, 500, 503, 504].includes(Number(status)) ||
+    msg.includes('high demand') ||
+    msg.includes('overloaded') ||
+    msg.includes('unavailable') ||
+    msg.includes('try again')
+  );
+};
+
+// Tries each model in order; retries the same model briefly before moving on.
+async function generateWithFallback(ai, models, request, { retriesPerModel = 2 } = {}) {
+  let lastError;
+  for (const model of models) {
+    for (let attempt = 0; attempt <= retriesPerModel; attempt++) {
+      try {
+        return await ai.models.generateContent({ ...request, model });
+      } catch (err) {
+        lastError = err;
+        if (!isRetryable(err)) throw err; // real errors (bad key, bad schema) fail immediately
+        if (attempt < retriesPerModel) {
+          await sleep(800 * 2 ** attempt + Math.random() * 400);
+        }
+      }
+    }
+    console.warn(`Model ${model} unavailable, trying next`);
+  }
+  throw lastError;
+}
 
 function buildPrompt({ language, type, singer, director, actor, mood, exclude }) {
   const filters = [
@@ -56,15 +92,19 @@ Give each song a "confidence" of "high", "medium", or "low" reflecting how sure 
 }
 
 // Optional second pass: check credits with Google Search and fix or drop wrong entries.
-async function verifySongs(ai, model, songs) {
-  const response = await ai.models.generateContent({
-    model,
-    contents: `Verify this list of Indian film songs using web search. For each song, confirm the movie, singers, music director and lead actor. Fix any wrong credits. Remove any song you cannot confirm exists. Return ONLY a JSON array with the same keys as the input, no markdown.\n\n${JSON.stringify(songs)}`,
-    config: {
-      temperature: 0.1,
-      tools: [{ googleSearch: {} }],
+async function verifySongs(ai, models, songs) {
+  const response = await generateWithFallback(
+    ai,
+    models,
+    {
+      contents: `Verify this list of Indian film songs using web search. For each song, confirm the movie, singers, music director and lead actor. Fix any wrong credits. Remove any song you cannot confirm exists. Return ONLY a JSON array with the same keys as the input, no markdown.\n\n${JSON.stringify(songs)}`,
+      config: {
+        temperature: 0.1,
+        tools: [{ googleSearch: {} }],
+      },
     },
-  });
+    { retriesPerModel: 1 }
+  );
   const clean = response.text.replace(/```json\s*/gi, '').replace(/```/g, '').trim();
   const verified = JSON.parse(clean);
   return Array.isArray(verified) ? verified : songs;
@@ -80,8 +120,13 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Server missing GEMINI_API_KEY' });
   }
 
-  const model = process.env.GEMINI_MODEL;
-  if (!model) {
+  // Comma-separated list in env: GEMINI_MODEL=gemini-3.5-flash-lite,gemini-2.5-flash
+  const models = (process.env.GEMINI_MODEL || '')
+    .split(',')
+    .map((m) => m.trim())
+    .filter(Boolean);
+
+  if (models.length === 0) {
     return res.status(500).json({ error: 'Server missing GEMINI_MODEL' });
   }
 
@@ -89,8 +134,7 @@ export default async function handler(req, res) {
   const ai = new GoogleGenAI({ apiKey });
 
   try {
-    const response = await ai.models.generateContent({
-      model,
+    const response = await generateWithFallback(ai, models, {
       contents: buildPrompt(body),
       config: {
         systemInstruction: SYSTEM_INSTRUCTION,
@@ -105,13 +149,13 @@ export default async function handler(req, res) {
     // Optional: set VERIFY_WITH_SEARCH=true in env to enable (slower, uses more quota)
     if (process.env.VERIFY_WITH_SEARCH === 'true') {
       try {
-        songs = await verifySongs(ai, model, songs);
+        songs = await verifySongs(ai, models, songs);
       } catch (e) {
         console.warn('Verification failed, using unverified list:', e.message);
       }
     }
 
-    // Drop low-confidence entries and anything already shown to the user
+    // Drop low-confidence entries, duplicates, and anything already shown to the user
     const excluded = new Set(
       (body.exclude || []).map((s) => String(s).toLowerCase().trim())
     );
@@ -120,8 +164,8 @@ export default async function handler(req, res) {
     songs = songs
       .filter((s) => s.confidence !== 'low')
       .filter((s) => {
-        const key = s.title.toLowerCase().trim();
-        if (excluded.has(key) || seen.has(key)) return false;
+        const key = String(s.title || '').toLowerCase().trim();
+        if (!key || excluded.has(key) || seen.has(key)) return false;
         seen.add(key);
         return true;
       })
@@ -129,6 +173,11 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ songs });
   } catch (error) {
-    return res.status(500).json({ error: error.message });
+    const busy = isRetryable(error);
+    return res.status(busy ? 503 : 500).json({
+      error: busy
+        ? 'The AI model is busy right now. Please try again in a few seconds.'
+        : error.message,
+    });
   }
 }
